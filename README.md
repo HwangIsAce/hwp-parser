@@ -35,7 +35,7 @@ document_to_json(doc, indent=2)
 
 **원본 (캡쳐본)**  
 
-![공고문 원본 (평가방법, 표 안의 표)](docs/example/공고문_원본.png)
+![공고문 원본 (평가방법, 표 안의 표)](docs/example/image.png)
 
 **파싱 후** (`to_markdown(파일경로)` — 같은 구간):
 
