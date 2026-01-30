@@ -1,10 +1,11 @@
 [project]
 name = "hwp-converter"
 version = "0.1.0"
-description = "Add your description here"
+description = "HWP/HWPX 문서를 JSON/Markdown/HTML 등으로 변환"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-    "helper-hwp>=0.5",
-    "helper-md-doc>=0.5.5",
-]
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["hwp_converter*"]
