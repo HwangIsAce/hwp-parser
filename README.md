@@ -1,7 +1,7 @@
 # hwp-converter
 
-HWP(한글) 문서를 JSON / Markdown / HTML 등으로 변환하는 도구.  
-[helper-hwp](https://pypi.org/project/helper-hwp/) 기반으로, **표 안의 표(중첩 표)** 와 **그림 바이너리** 추출을 확장 구현했습니다.
+HWP / HWPX 문서를 JSON, Markdown, 평문 텍스트로 변환하는 도구.  
+외부 한글 엔진 없이 스토리지·레코드/XML 파서를 직접 구현했으며, 문단·표(중첩 표)·그림·수식을 공통 모델로 다룹니다.
 
 ## 설치
 
@@ -10,60 +10,56 @@ uv sync
 # 또는 pip install -e .
 ```
 
-## 확장 기능 사용법
-
-### 1. 중첩 표 트리 (표 안의 표)
-
-`build_document_tree()`로 문서를 순회하면, 표 셀 안에 있는 중첩 표가 `TableNode.cells` 안에 트리 구조로 들어갑니다.
+## 사용 방법
 
 ```python
-from hwp_converter import build_document_tree
-from hwp_converter.document_tree import TableNode, ParagraphNode
+from hwp_converter import load, to_text, to_markdown, to_json
 
-# 파일 경로 또는 이미 연 HwpDocument
-nodes = build_document_tree("문서.hwp")
+# 파일 경로만 넣으면 .hwp / .hwpx 자동 감지
+doc   = load("문서.hwp")
+text  = to_text("문서.hwpx")
+md    = to_markdown("문서.hwp")
+json_ = to_json("문서.hwp", indent=2)
 
-for node in nodes:
-    if isinstance(node, ParagraphNode):
-        print("문단:", node.text[:50])
-    elif isinstance(node, TableNode):
-        print(f"표: {node.rows}x{node.cols}, 중첩 표 수: {len(node.nested_tables)}")
-        # 셀 내용 순회 (각 셀은 [ParagraphNode | TableNode, ...])
-        for i, cell_contents in enumerate(node.cells):
-            for item in cell_contents:
-                if isinstance(item, TableNode):
-                    print("  -> 표 안의 표:", item.rows, "x", item.cols)
-                else:
-                    print("  -> 문단:", item.text[:30])
+# Document 객체로 변환만 할 때
+doc = load("문서.hwpx")
+from hwp_converter import document_to_text, document_to_markdown, document_to_json
+document_to_text(doc)
+document_to_markdown(doc)
+document_to_json(doc, indent=2)
 ```
 
-### 2. 그림 바이너리 추출
+포맷 지정 로드: `load_hwp(path)`, `load_hwpx(path)`.
 
-`load_bin_data()`로 HWP 내 BinData를 로드하고, `get_picture_bytes()`로 PICTURE 요소에 대응하는 이미지 바이트를 가져옵니다.
+## 예시
 
-```python
-from helper_hwp import open_hwp
-from helper_hwp.constants import ElementType
-from hwp_converter import load_bin_data, get_picture_bytes
+**원본 (캡쳐본)**  
 
-path = "문서.hwp"
-bin_data = load_bin_data(path)
+![공고문 원본 (평가방법, 표 안의 표)](docs/example/공고문_원본.png)
 
-with open_hwp(path) as doc:
-    for elem_type, elem in doc.iter_tags():
-        if elem_type == ElementType.PICTURE:
-            img_bytes = get_picture_bytes(path, elem, bin_data=bin_data)
-            if img_bytes:
-                with open("image_0.png", "wb") as f:
-                    f.write(img_bytes)
+**파싱 후** (`to_markdown(파일경로)` — 같은 구간):
+
+```markdown
+### 3
+
+### 평가방법
+
+### □ 평가방법 : 서면평가 (30%) + 대국민 온라인 평가 (70%) 점수를 합산하여 고득점자 순으로 시상자 결정*
+
+* 최종점수 동점자는 서면평가 심사항목인 ①실현 가능성 및 지속 가능성, ②주제 적합성, ③공모 내용 혁신성, ④공익·공동체성 순으로 해당지표 득점이 높은 자로 순위 결정
+
+< 최종점수 산출방법 >
+
+| 구분 | 비중 | 산출방법 |
+| --- | --- | --- |
+| 서면평가 | 30% | 1차 평가점수 30점으로 환산 |
+| 대국민 온라인 평가 | 70% |  |
+
+| 순위 | 1위 | 2위 | 3위 | 4위 | 5위 | 6위 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 점수 | 70점 | 65점 | 60 | 55 | 50 | 45 |
+
+* 분야별 순위에 따른 차등 점수 부여
 ```
 
-## 프로젝트 구조
-
-- `hwp_converter/document_tree.py` — `iter_tags()` 후처리로 중첩 표 트리 구축
-- `hwp_converter/image_extract.py` — DocInfo/OLE BinData 파싱 및 그림 바이트 추출
-
-## 의존성
-
-- helper-hwp (HWP 5.x 파싱)
-- olefile (이미지 추출 시 BinData 읽기용)
+바깥 표(구분/비중/산출방법)와 그 셀 안에 있던 안쪽 표(순위·점수)가 각각 마크다운 테이블로 나옵니다.
