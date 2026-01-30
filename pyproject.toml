@@ -1,0 +1,10 @@
+[project]
+name = "hwp-converter"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "helper-hwp>=0.5",
+    "helper-md-doc>=0.5.5",
+]
