@@ -9,18 +9,35 @@ Document → 텍스트 / 마크다운 / JSON 변환.
 import json
 from typing import Any, Dict, List, Union
 
+from ..model.control import Equation, Picture
 from ..model.document import Document, Section
 from ..model.paragraph import Paragraph, Run
 from ..model.table import Cell, Table
 
 
+def _run_to_text(run: Run) -> str:
+    """런을 평문으로 (제어 시 [이미지]/[수식] 플레이스홀더)."""
+    if run.control is not None:
+        if isinstance(run.control, Picture):
+            return "[이미지]"
+        if isinstance(run.control, Equation):
+            return "[수식]"
+    return run.text or ""
+
+
+def _paragraph_to_text_with_controls(p: Paragraph) -> str:
+    """문단 텍스트 + 제어 플레이스홀더."""
+    return "".join(_run_to_text(r) for r in p.runs)
+
+
 def document_to_text(doc: Document) -> str:
-    """문서 전체를 평문 텍스트로 반환 (문단 + 표 셀 텍스트)."""
+    """문서 전체를 평문 텍스트로 반환 (문단 + 표 셀 텍스트, 제어는 [이미지]/[수식])."""
     parts: List[str] = []
     for sec in doc.sections:
         for p in sec.paragraphs:
-            if p.text.strip():
-                parts.append(p.text.strip())
+            s = _paragraph_to_text_with_controls(p).strip()
+            if s:
+                parts.append(s)
         for t in sec.tables:
             for row in t.cells:
                 for cell in row:
@@ -30,7 +47,12 @@ def document_to_text(doc: Document) -> str:
 
 
 def _run_to_markdown(run: Run) -> str:
-    """런 텍스트를 글자 모양에 따라 마크다운으로."""
+    """런 텍스트를 글자 모양에 따라 마크다운으로. 제어는 [이미지]/[수식]."""
+    if run.control is not None:
+        if isinstance(run.control, Picture):
+            return "[이미지]"
+        if isinstance(run.control, Equation):
+            return "[수식]"
     text = run.text or ""
     if not text.strip():
         return text
@@ -98,6 +120,17 @@ def document_to_markdown(doc: Document) -> str:
     return "\n".join(parts).strip()
 
 
+def _control_to_dict(ctrl: Any) -> Dict[str, Any]:
+    """Control을 JSON 직렬화용 dict로."""
+    if ctrl is None:
+        return {}
+    d: Dict[str, Any] = {"type": type(ctrl).__name__.lower()}
+    if isinstance(ctrl, Picture):
+        if ctrl.bin_index is not None:
+            d["bin_index"] = ctrl.bin_index
+    return d
+
+
 def _paragraph_to_dict(p: Paragraph) -> Dict[str, Any]:
     return {
         "text": p.text,
@@ -107,6 +140,7 @@ def _paragraph_to_dict(p: Paragraph) -> Dict[str, Any]:
             {
                 "text": r.text,
                 "char_shape_id": r.char_shape_id,
+                **({"control": _control_to_dict(r.control)} if r.control else {}),
             }
             for r in p.runs
         ],
